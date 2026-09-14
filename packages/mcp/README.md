@@ -2,14 +2,13 @@
 
 Local stdio MCP server for Trading 212. Requires Node.js 22.18+. Independent community project; not affiliated with Trading 212.
 
-## Install
+## Run
 
 ```sh
-npm install --global @mingchuno/trading212-mcp
-trading212-mcp --version
+npx --yes @mingchuno/trading212-mcp --version
 ```
 
-The server runs on your machine and connects directly to the broker. No hosted service or OAuth flow is required.
+`npx` runs the latest published version without a global install. The server runs on your machine and connects directly to the broker. No hosted service or OAuth flow is required.
 
 ## Configure credentials
 
@@ -43,7 +42,8 @@ Add a local stdio server using your host's configuration format. Hosts supportin
 {
   "mcpServers": {
     "trading212": {
-      "command": "trading212-mcp",
+      "command": "npx",
+      "args": ["--yes", "@mingchuno/trading212-mcp"],
       "env": {
         "T212_ENV": "live",
         "T212_CREDENTIALS_FILE": "/absolute/private/path/trading212.json",
@@ -54,14 +54,27 @@ Add a local stdio server using your host's configuration format. Hosts supportin
 }
 ```
 
-If a desktop host cannot find the command, use its absolute path (`command -v trading212-mcp` on macOS/Linux). If it also cannot find Node, set `command` to the absolute Node executable and `args` to the absolute installed `dist/cli.js` path. The global package location is shown by `npm root --global`. Avoid launching through `pnpm run`, whose banners can interfere with stdio.
+[Codex](https://developers.openai.com/codex/mcp) uses TOML. Add this to `~/.codex/config.toml` (or `.codex/config.toml` in a trusted project):
+
+```toml
+[mcp_servers.trading212]
+command = "npx"
+args = ["--yes", "@mingchuno/trading212-mcp"]
+
+[mcp_servers.trading212.env]
+T212_ENV = "live"
+T212_CREDENTIALS_FILE = "/absolute/private/path/trading212.json"
+T212_ALLOW_TRADING = "false"
+```
+
+If a desktop host cannot find `npx`, use its absolute path (`command -v npx` on macOS/Linux). As an alternative, install the package with `npm install --global @mingchuno/trading212-mcp`, set `command` to `trading212-mcp`, and omit `args`. Avoid launching through `pnpm run`, whose banners can interfere with stdio.
 
 Check access from a terminal with the same configuration:
 
 ```sh
 T212_ENV=live \
 T212_CREDENTIALS_FILE=/absolute/private/path/trading212.json \
-trading212-mcp doctor
+npx --yes @mingchuno/trading212-mcp doctor
 ```
 
 `doctor` makes one authenticated account-summary request; it does not test every API permission. `--help` and `--version` need no credentials. Help and diagnostics go to stderr; stdout is reserved for MCP. Starting the server directly waits for a host on stdin rather than opening a web page.

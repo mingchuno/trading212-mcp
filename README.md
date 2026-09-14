@@ -13,10 +13,10 @@ Independent community project; not affiliated with Trading 212. Requires **Node.
 
 ## Use with an assistant
 
-Install the server:
+Check the server can run:
 
 ```sh
-npm install --global @mingchuno/trading212-mcp
+npx --yes @mingchuno/trading212-mcp --version
 ```
 
 Add a local stdio server to your MCP host. This common JSON format is host-dependent; replace the credential path with your own:
@@ -25,7 +25,8 @@ Add a local stdio server to your MCP host. This common JSON format is host-depen
 {
   "mcpServers": {
     "trading212": {
-      "command": "trading212-mcp",
+      "command": "npx",
+      "args": ["--yes", "@mingchuno/trading212-mcp"],
       "env": {
         "T212_ENV": "live",
         "T212_CREDENTIALS_FILE": "/absolute/private/path/trading212.json",
@@ -36,7 +37,20 @@ Add a local stdio server to your MCP host. This common JSON format is host-depen
 }
 ```
 
-See [MCP setup](packages/mcp/README.md) for creating the credentials file, checking the connection, and resolving executable paths. No repository clone or development tooling is needed.
+For [Codex](https://developers.openai.com/codex/mcp), add this to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.trading212]
+command = "npx"
+args = ["--yes", "@mingchuno/trading212-mcp"]
+
+[mcp_servers.trading212.env]
+T212_ENV = "live"
+T212_CREDENTIALS_FILE = "/absolute/private/path/trading212.json"
+T212_ALLOW_TRADING = "false"
+```
+
+See [MCP setup](packages/mcp/README.md) for creating the credentials file, checking the connection, and troubleshooting executable paths. No repository clone or development tooling is needed.
 
 Try asking: “Summarize my positions and pending orders” or “Find instruments matching Apple.” Trading starts disabled; report generation remains available.
 
