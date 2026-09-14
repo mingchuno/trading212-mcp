@@ -1,6 +1,6 @@
-import { setTimeout as sleep } from "node:timers/promises";
 import { z } from "zod";
 import { Trading212Error } from "./errors.js";
+import { RequestScheduler, retryDelay } from "./scheduler.js";
 
 export const environmentSchema = z.enum(["live", "demo"]);
 export type Environment = z.infer<typeof environmentSchema>;
@@ -14,39 +14,6 @@ export interface ClientConfig {
   timeoutMs?: number;
   maxWaitMs?: number;
   readRetries?: number;
-}
-
-// Conservative pacing from the pinned specification, keyed by method and endpoint.
-function intervalMs(method: string, path: string): number {
-  if (path.endsWith("/metadata/instruments")) return 50_000;
-  if (path.endsWith("/metadata/exchanges")) return 30_000;
-  if (path.endsWith("/history/exports"))
-    return method === "GET" ? 60_000 : 30_000;
-  if (path.includes("/history/")) return 10_000;
-  if (path.endsWith("/account/summary") || path.endsWith("/orders"))
-    return 5_000;
-  if (path.endsWith("/positions")) return 1_000;
-  if (path.includes("/pies"))
-    return path.endsWith("/pies") && method === "GET" ? 30_000 : 5_000;
-  if (/\/orders\/(limit|stop|stop_limit)$/.test(path)) return 2_000;
-  return method === "GET" ? 1_000 : 1_200;
-}
-
-function retryDelay(headers: Headers): number {
-  const retry = headers.get("retry-after");
-  const reset = headers.get("x-ratelimit-reset");
-  const seconds = retry === null ? Number.NaN : Number(retry);
-  const retryMs = Number.isFinite(seconds)
-    ? seconds * 1000
-    : retry
-      ? Date.parse(retry) - Date.now()
-      : 0;
-  const resetMs = reset === null ? 0 : Number(reset) * 1000 - Date.now();
-  return Math.max(
-    0,
-    Number.isFinite(retryMs) ? retryMs : 0,
-    Number.isFinite(resetMs) ? resetMs : 0,
-  );
 }
 
 function httpError(response: Response, mutation: boolean): Trading212Error {
@@ -87,6 +54,24 @@ function httpError(response: Response, mutation: boolean): Trading212Error {
   );
 }
 
+function requestFailure(error: unknown, incoming: Request): Trading212Error {
+  const mutation = incoming.method !== "GET";
+  return error instanceof Trading212Error
+    ? error
+    : new Trading212Error(
+        mutation
+          ? "OUTCOME_UNKNOWN"
+          : incoming.signal.aborted
+            ? "CANCELLED"
+            : error instanceof SyntaxError
+              ? "INVALID_RESPONSE"
+              : "NETWORK_ERROR",
+        mutation
+          ? "Request may have been applied. Inspect pending orders and history; do not resubmit automatically."
+          : "Request failed or returned an invalid response.",
+      );
+}
+
 export class Transport {
   readonly origin: string;
   readonly environment: Environment;
@@ -94,10 +79,8 @@ export class Transport {
   readonly #authorization: string;
   readonly #fetch: Fetch;
   readonly #timeoutMs: number;
-  readonly #maxWaitMs: number;
+  readonly #scheduler: RequestScheduler;
   readonly #readRetries: number;
-  readonly #nextAllowed = new Map<string, number>();
-  readonly #queues = new Map<string, Promise<void>>();
 
   constructor(config: ClientConfig) {
     this.environment = environmentSchema.parse(config.environment);
@@ -121,12 +104,13 @@ export class Transport {
       .min(1)
       .max(120_000)
       .parse(config.timeoutMs ?? 15_000);
-    this.#maxWaitMs = z
+    const maxWaitMs = z
       .number()
       .int()
       .min(0)
       .max(60_000)
       .parse(config.maxWaitMs ?? 5_000);
+    this.#scheduler = new RequestScheduler(maxWaitMs);
     this.#readRetries = z
       .number()
       .int()
@@ -168,88 +152,39 @@ export class Transport {
     const mutation = incoming.method !== "GET";
     if (mutation && !path.endsWith("/history/exports"))
       this.assertTradingAllowed();
-    const key = `${incoming.method} ${path.replace(/\/\d+(?=\/|$)/g, "/{id}")}`;
-    const deadline = Date.now() + this.#maxWaitMs;
-    const previous = this.#queues.get(key) ?? Promise.resolve();
-    const operation = this.awaitTurn(previous, incoming.signal, deadline).then(
-      () => this.send(incoming, key, deadline),
+    return this.#scheduler.schedule(incoming, (key, deadline) =>
+      this.send(incoming, key, deadline),
     );
-    const settled = operation.then(
-      () => {},
-      () => {},
-    );
-    // A cancelled waiter must not let later requests overtake the active request.
-    const tail = previous.then(() => settled);
-    this.#queues.set(key, tail);
-    void tail.then(() => {
-      if (this.#queues.get(key) === tail) this.#queues.delete(key);
-    });
-    return operation;
   };
 
-  private awaitTurn(
-    previous: Promise<void>,
-    signal: AbortSignal,
-    deadline: number,
-  ): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const onAbort = () =>
-        finish(
-          new Trading212Error(
-            "CANCELLED",
-            "Request cancelled before submission.",
-          ),
-        );
-      const timer = setTimeout(
-        () =>
-          finish(
-            new Trading212Error(
-              "RATE_LIMITED",
-              "Request queue wait exceeds the configured budget.",
-            ),
-          ),
-        Math.max(0, deadline - Date.now()),
-      );
-      function finish(error?: Trading212Error) {
-        clearTimeout(timer);
-        signal.removeEventListener("abort", onAbort);
-        if (error) reject(error);
-        else resolve();
-      }
-      signal.addEventListener("abort", onAbort, { once: true });
-      if (signal.aborted) onAbort();
-      else void previous.then(() => finish());
+  private authorizedRequest(incoming: Request): Request {
+    const headers = new Headers(incoming.headers);
+    headers.set("Authorization", this.#authorization);
+    headers.set("Accept", "application/json");
+    return new Request(incoming.clone(), {
+      headers,
+      redirect: "error",
+      signal: AbortSignal.any([
+        incoming.signal,
+        AbortSignal.timeout(this.#timeoutMs),
+      ]),
     });
   }
 
-  private async waitForBudget(
-    key: string,
-    deadline: number,
-    signal: AbortSignal,
-  ) {
-    if (signal.aborted)
-      throw new Trading212Error(
-        "CANCELLED",
-        "Request cancelled before submission.",
-      );
-    const delay = Math.max(0, (this.#nextAllowed.get(key) ?? 0) - Date.now());
-    if (delay > 0 && Date.now() + delay > deadline)
-      throw new Trading212Error(
-        "RATE_LIMITED",
-        "Rate-limit wait exceeds the configured budget.",
-        undefined,
-        delay,
-      );
-    if (delay > 0) {
-      try {
-        await sleep(delay, undefined, { signal });
-      } catch {
-        throw new Trading212Error(
-          "CANCELLED",
-          "Request cancelled before submission.",
-        );
-      }
+  private async sendAttempt(request: Request, key: string): Promise<Response> {
+    const response = await this.#fetch(request);
+    this.#scheduler.observeResponse(key, response);
+    if (!response.ok) {
+      await response.body?.cancel();
+      throw httpError(response, request.method !== "GET");
     }
+    // Consume under the request timeout; keep parsing failures inside mutation uncertainty handling.
+    const body = await response.text();
+    if (body) JSON.parse(body);
+    return new Response(body || null, {
+      status: response.status,
+      headers: response.headers,
+    });
   }
 
   private async send(
@@ -258,72 +193,21 @@ export class Transport {
     deadline: number,
   ): Promise<Response> {
     const mutation = incoming.method !== "GET";
-    const path = new URL(incoming.url).pathname;
     for (let attempt = 0; ; attempt++) {
-      await this.waitForBudget(key, deadline, incoming.signal);
-      this.#nextAllowed.set(
-        key,
-        Date.now() + intervalMs(incoming.method, path),
-      );
-      const headers = new Headers(incoming.headers);
-      headers.set("Authorization", this.#authorization);
-      headers.set("Accept", "application/json");
-      const request = new Request(incoming.clone(), {
-        headers,
-        redirect: "error",
-        signal: AbortSignal.any([
-          incoming.signal,
-          AbortSignal.timeout(this.#timeoutMs),
-        ]),
-      });
+      await this.#scheduler.waitForBudget(key, deadline, incoming.signal);
+      this.#scheduler.recordAttempt(key, incoming);
+      const request = this.authorizedRequest(incoming);
       try {
-        const response = await this.#fetch(request);
-        if (
-          response.headers.get("x-ratelimit-remaining") === "0" ||
-          response.status === 429
-        ) {
-          this.#nextAllowed.set(
-            key,
-            Math.max(
-              this.#nextAllowed.get(key) ?? 0,
-              Date.now() + retryDelay(response.headers),
-            ),
-          );
-        }
-        if (!response.ok) {
-          await response.body?.cancel();
-          throw httpError(response, mutation);
-        }
-        // Consume under the request timeout; keep parsing failures inside mutation uncertainty handling.
-        const body = await response.text();
-        if (body) JSON.parse(body);
-        return new Response(body || null, {
-          status: response.status,
-          headers: response.headers,
-        });
+        return await this.sendAttempt(request, key);
       } catch (error) {
-        const failure =
-          error instanceof Trading212Error
-            ? error
-            : new Trading212Error(
-                mutation
-                  ? "OUTCOME_UNKNOWN"
-                  : incoming.signal.aborted
-                    ? "CANCELLED"
-                    : error instanceof SyntaxError
-                      ? "INVALID_RESPONSE"
-                      : "NETWORK_ERROR",
-                mutation
-                  ? "Request may have been applied. Inspect pending orders and history; do not resubmit automatically."
-                  : "Request failed or returned an invalid response.",
-              );
+        const failure = requestFailure(error, incoming);
         const retryable =
           failure.code === "RATE_LIMITED" ||
           failure.code === "NETWORK_ERROR" ||
           (failure.status ?? 0) >= 500;
         if (mutation || !retryable || attempt >= this.#readRetries)
           throw failure;
-        if ((this.#nextAllowed.get(key) ?? 0) > deadline) throw failure;
+        if (this.#scheduler.exceedsDeadline(key, deadline)) throw failure;
       }
     }
   }

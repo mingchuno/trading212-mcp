@@ -34,6 +34,18 @@ async function readCredentials(path: string) {
   }
 }
 
+function readEnvironmentCredentials(env: NodeJS.ProcessEnv) {
+  const credentials = credentialsSchema.safeParse({
+    apiKey: env.T212_API_KEY,
+    apiSecret: env.T212_API_SECRET,
+  });
+  if (!credentials.success)
+    throw new ConfigurationError(
+      "Set both T212_API_KEY and T212_API_SECRET, or T212_CREDENTIALS_FILE.",
+    );
+  return credentials.data;
+}
+
 export async function loadConfig(
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<ClientConfig> {
@@ -49,21 +61,7 @@ export async function loadConfig(
     );
   const credentials = env.T212_CREDENTIALS_FILE
     ? await readCredentials(env.T212_CREDENTIALS_FILE)
-    : credentialsSchema.safeParse({
-        apiKey: env.T212_API_KEY,
-        apiSecret: env.T212_API_SECRET,
-      });
-  if ("success" in credentials) {
-    if (!credentials.success)
-      throw new ConfigurationError(
-        "Set both T212_API_KEY and T212_API_SECRET, or T212_CREDENTIALS_FILE.",
-      );
-    return {
-      ...credentials.data,
-      environment: environment.data,
-      allowTrading: flag === "true",
-    };
-  }
+    : readEnvironmentCredentials(env);
   return {
     ...credentials,
     environment: environment.data,

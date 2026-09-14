@@ -228,3 +228,46 @@ describe("mutation acknowledgements", () => {
     },
   );
 });
+
+describe("history continuation limits", () => {
+  it.each(["0", "51", "1&limit=2", "01", "", "1.0"])(
+    "rejects limit=%s before sending",
+    async (limit) => {
+      const fetchMock = vi.fn();
+      const client = new Trading212Client({
+        environment: "demo",
+        apiKey: "key",
+        apiSecret: "secret",
+        fetch: fetchMock,
+      });
+      await expect(
+        client.history.page("orders", {
+          nextPagePath: `/api/v0/equity/history/orders?limit=${limit}`,
+        }),
+      ).rejects.toThrow("Continuation limit must be between 1 and 50.");
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+  );
+  it.each(["limit=1&cursor=a%2Fb", "limit=50&cursor=123", "cursor=123"])(
+    "preserves valid continuation query %s",
+    async (query) => {
+      const fetchMock = vi.fn(async () =>
+        Response.json({ items: [], nextPagePath: null }),
+      );
+      const client = new Trading212Client({
+        environment: "demo",
+        apiKey: "key",
+        apiSecret: "secret",
+        fetch: fetchMock,
+      });
+      await client.history.page("orders", {
+        nextPagePath: `/api/v0/equity/history/orders?${query}`,
+      });
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: `https://demo.trading212.com/api/v0/equity/history/orders?${query}`,
+        }),
+      );
+    },
+  );
+});

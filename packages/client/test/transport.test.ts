@@ -10,6 +10,56 @@ const request = () =>
   new Request("https://demo.trading212.com/api/v0/equity/account/summary");
 afterEach(() => vi.useRealTimers());
 
+function pendingResponse() {
+  let resolve!: (response: Response) => void;
+  const promise = new Promise<Response>((complete) => {
+    resolve = complete;
+  });
+  return { promise, resolve };
+}
+
+describe("transport response handling", () => {
+  it.each([
+    { method: "GET", code: "INVALID_RESPONSE" },
+    { method: "POST", code: "OUTCOME_UNKNOWN" },
+  ])(
+    "classifies malformed JSON for $method without retrying",
+    async ({ method, code }) => {
+      const fetchMock = vi.fn(async () => new Response("{invalid"));
+      const transport = new Transport({
+        ...config,
+        allowTrading: true,
+        fetch: fetchMock,
+        maxWaitMs: 60_000,
+        readRetries: 3,
+      });
+
+      await expect(
+        transport.fetch(new Request(request(), { method })),
+      ).rejects.toMatchObject({ code });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it("preserves an empty successful cancellation response", async () => {
+    const fetchMock = vi.fn(async () => new Response(null, { status: 204 }));
+    const transport = new Transport({
+      ...config,
+      allowTrading: true,
+      fetch: fetchMock,
+    });
+    const response = await transport.fetch(
+      new Request("https://demo.trading212.com/api/v0/equity/orders/123", {
+        method: "DELETE",
+      }),
+    );
+
+    expect(response.status).toBe(204);
+    expect(await response.text()).toBe("");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("transport scheduling", () => {
   it("retries safe reads after the endpoint delay", async () => {
     vi.useFakeTimers();
@@ -84,5 +134,75 @@ describe("transport scheduling", () => {
       }),
     ).rejects.toThrow();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("queue ordering and deadlines", () => {
+  it("keeps a third request behind the active request when the middle waiter cancels", async () => {
+    vi.useFakeTimers();
+    const active = pendingResponse();
+    const fetchMock = vi
+      .fn()
+      .mockReturnValueOnce(active.promise)
+      .mockResolvedValue(Response.json({}));
+    const transport = new Transport({
+      ...config,
+      fetch: fetchMock,
+      maxWaitMs: 60_000,
+    });
+    const first = transport.fetch(request());
+    await vi.advanceTimersByTimeAsync(0);
+    const controller = new AbortController();
+    const second = transport.fetch(
+      new Request(request(), { signal: controller.signal }),
+    );
+    controller.abort();
+    await expect(second).rejects.toMatchObject({ code: "CANCELLED" });
+    const third = transport.fetch(request());
+    await vi.advanceTimersByTimeAsync(6_000);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    active.resolve(Response.json({}));
+    await Promise.all([first, third]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+  it("expires a queued request without sending it after the active request completes", async () => {
+    vi.useFakeTimers();
+    const active = pendingResponse();
+    const fetchMock = vi.fn().mockReturnValue(active.promise);
+    const transport = new Transport({
+      ...config,
+      fetch: fetchMock,
+      maxWaitMs: 100,
+    });
+    const first = transport.fetch(request());
+    await vi.advanceTimersByTimeAsync(0);
+    const second = transport.fetch(request());
+    const rejected = expect(second).rejects.toMatchObject({
+      code: "RATE_LIMITED",
+      message: "Request queue wait exceeds the configured budget.",
+    });
+    await vi.advanceTimersByTimeAsync(100);
+    await rejected;
+    active.resolve(Response.json({}));
+    await first;
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+  it("allows another endpoint to complete while a request is active", async () => {
+    const active = pendingResponse();
+    const fetchMock = vi
+      .fn()
+      .mockReturnValueOnce(active.promise)
+      .mockResolvedValue(Response.json([]));
+    const transport = new Transport({ ...config, fetch: fetchMock });
+    const first = transport.fetch(request());
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    await expect(
+      transport.fetch(
+        new Request("https://demo.trading212.com/api/v0/equity/positions"),
+      ),
+    ).resolves.toHaveProperty("status", 200);
+    active.resolve(Response.json({}));
+    await first;
   });
 });

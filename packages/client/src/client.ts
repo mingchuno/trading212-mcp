@@ -229,6 +229,23 @@ export class Trading212Client {
         }),
       ),
   };
+  private continuationUrl(kind: HistoryKind, nextPagePath: string): string {
+    const validated = new URL(
+      this.#transport.validatePath(
+        nextPagePath,
+        `/api/v0/equity/history/${kind}`,
+      ),
+    );
+    const limits = validated.searchParams.getAll("limit");
+    if (
+      limits.length > 1 ||
+      (limits.length === 1 &&
+        !/^(?:[1-9]|[1-4][0-9]|50)$/.test(limits[0] ?? ""))
+    )
+      throw new Error("Continuation limit must be between 1 and 50.");
+    return `${validated.pathname}${validated.search}`;
+  }
+
   readonly history: HistoryMethods = {
     page: async (
       kind: HistoryKind,
@@ -244,20 +261,7 @@ export class Trading212Client {
           "Use nextPagePath alone to preserve pagination parameters.",
         );
       if (nextPagePath) {
-        const validated = new URL(
-          this.#transport.validatePath(
-            nextPagePath,
-            `/api/v0/equity/history/${kind}`,
-          ),
-        );
-        const limits = validated.searchParams.getAll("limit");
-        if (
-          limits.length > 1 ||
-          (limits.length === 1 &&
-            !/^(?:[1-9]|[1-4][0-9]|50)$/.test(limits[0] ?? ""))
-        )
-          throw new Error("Continuation limit must be between 1 and 50.");
-        const url = `${validated.pathname}${validated.search}`;
+        const url = this.continuationUrl(kind, nextPagePath);
         return payload(
           this.#http.get<{ 200: HistoryPage }, unknown, true>({
             url,
