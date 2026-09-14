@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { packages, packPackage } from "./release-packages.mjs";
@@ -10,6 +10,21 @@ try {
   const artifacts = [];
   for (const pkg of packages)
     artifacts.push(await packPackage(pkg.path, temporary));
+  const license = await readFile("LICENCE", "utf8");
+  for (const artifact of artifacts) {
+    const manifest = JSON.parse(
+      execFileSync("tar", ["-xOf", artifact.tarball, "package/package.json"], {
+        encoding: "utf8",
+      }),
+    );
+    assert.equal(manifest.license, "MIT");
+    assert.equal(
+      execFileSync("tar", ["-xOf", artifact.tarball, "package/LICENCE"], {
+        encoding: "utf8",
+      }),
+      license,
+    );
+  }
   const consumer = join(temporary, "consumer");
   await mkdir(consumer);
   await writeFile(
