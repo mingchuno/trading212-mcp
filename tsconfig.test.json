@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "paths": { "@trading212-local/client": ["./packages/client/src/index.ts"] }
+  },
+  "include": [
+    "packages/*/test/**/*.ts",
+    "vitest.config.ts",
+    "openapi-ts.config.ts"
+  ]
+}

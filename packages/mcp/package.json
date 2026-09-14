@@ -1,0 +1,32 @@
+{
+  "name": "@trading212-local/mcp",
+  "version": "0.1.0",
+  "description": "Local stdio MCP server for Trading 212",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "bin": {
+    "trading212-mcp": "dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.30.0",
+    "@trading212-local/client": "workspace:^",
+    "citty": "0.2.2",
+    "zod": "4.6.5"
+  }
+}
