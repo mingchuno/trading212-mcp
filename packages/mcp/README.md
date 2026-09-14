@@ -79,6 +79,47 @@ npx --yes @mingchuno/trading212-mcp doctor
 
 `doctor` makes one authenticated account-summary request; it does not test every API permission. `--help` and `--version` need no credentials. Help and diagnostics go to stderr; stdout is reserved for MCP. Starting the server directly waits for a host on stdin rather than opening a web page.
 
+## Alternative: inject credentials from a password manager
+
+You can keep the API key and secret in a password manager and inject them as environment variables at startup. For example, [1Password CLI's `op run`](https://www.1password.dev/cli/reference/commands/run) resolves secret references before launching the MCP. Configure [CLI authentication](https://developer.1password.com/docs/cli/get-started/) first, then replace the references below with those for your item:
+
+```json
+{
+  "mcpServers": {
+    "trading212": {
+      "command": "op",
+      "args": ["run", "--", "npx", "--yes", "@mingchuno/trading212-mcp"],
+      "env": {
+        "T212_ENV": "live",
+        "T212_API_KEY": "op://Personal/Trading212/apiKey",
+        "T212_API_SECRET": "op://Personal/Trading212/apiSecret",
+        "T212_ALLOW_TRADING": "false"
+      }
+    }
+  }
+}
+```
+
+Equivalent Codex TOML:
+
+```toml
+[mcp_servers.trading212]
+command = "op"
+args = ["run", "--", "npx", "--yes", "@mingchuno/trading212-mcp"]
+
+[mcp_servers.trading212.env]
+T212_ENV = "live"
+T212_API_KEY = "op://Personal/Trading212/apiKey"
+T212_API_SECRET = "op://Personal/Trading212/apiSecret"
+T212_ALLOW_TRADING = "false"
+```
+
+Use this instead of the file-based server entry, and leave `T212_CREDENTIALS_FILE` unset. Configuration contains references only; no plaintext broker-credential file is needed. Resolved secrets remain in the running process's environment/memory. Restart the MCP after rotating them.
+
+The MCP only reads `T212_API_KEY` and `T212_API_SECRET`; it does not interpret `op://` references or depend on 1Password. Other managers can supply the same variables through their own process-launching CLI or integration.
+
+For desktop hosts, ensure `op` and `npx` are discoverable (or use absolute executable paths) and that CLI authentication works without a terminal prompt. Approve any 1Password desktop unlock prompt before the host's startup timeout expires.
+
 ## Use the tools
 
 Ask your assistant to summarize your account, inspect positions and pending orders, search instruments, or retrieve a bounded history page. [Tool reference](https://github.com/mingchuno/trading212-mcp#tools).

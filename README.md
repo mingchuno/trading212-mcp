@@ -52,6 +52,8 @@ T212_ALLOW_TRADING = "false"
 
 See [MCP setup](packages/mcp/README.md) for creating the credentials file, checking the connection, and troubleshooting executable paths. No repository clone or development tooling is needed.
 
+To keep plaintext credentials out of local configuration files, see the [password-manager environment injection alternative](packages/mcp/README.md#alternative-inject-credentials-from-a-password-manager), with 1Password examples in JSON and TOML.
+
 Try asking: “Summarize my positions and pending orders” or “Find instruments matching Apple.” Trading starts disabled; report generation remains available.
 
 ## Use from code
