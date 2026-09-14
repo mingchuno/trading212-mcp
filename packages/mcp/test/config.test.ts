@@ -85,3 +85,52 @@ it("preserves configuration validation order", async () => {
     }),
   ).rejects.toThrow("T212_ALLOW_TRADING must be true or false.");
 });
+
+it.each(["permissions", "symlink", "oversized", "malformed", "schema"])(
+  "rejects %s credential files without exposing their contents",
+  async (kind) => {
+    const { chmod, symlink } = await import("node:fs/promises");
+    const directory = await mkdtemp(join(tmpdir(), "t212-invalid-config-"));
+    const sentinel = "private-credential-sentinel";
+    try {
+      const path = join(directory, "credentials.json");
+      await writeFile(
+        path,
+        JSON.stringify({ apiKey: sentinel, apiSecret: sentinel }),
+        { mode: 0o600 },
+      );
+      let configuredPath = path;
+      if (kind === "permissions") {
+        if (process.platform === "win32") return;
+        await chmod(path, 0o644);
+      }
+      if (kind === "symlink") {
+        configuredPath = join(directory, "link.json");
+        await symlink(path, configuredPath);
+      }
+      if (kind === "oversized")
+        await writeFile(
+          path,
+          JSON.stringify({
+            apiKey: sentinel.repeat(2000),
+            apiSecret: sentinel,
+          }),
+        );
+      if (kind === "malformed") await writeFile(path, `{${sentinel}`);
+      if (kind === "schema")
+        await writeFile(path, JSON.stringify({ apiKey: sentinel }));
+      const failure = await loadConfig({
+        T212_CREDENTIALS_FILE: configuredPath,
+      }).then(
+        () => {
+          throw new Error("Unexpected success");
+        },
+        (error) => error,
+      );
+      expect(failure.message).toContain("Cannot read credentials file");
+      expect(String(failure)).not.toContain(sentinel);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  },
+);

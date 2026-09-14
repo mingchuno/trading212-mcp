@@ -118,14 +118,15 @@ pnpm format             # format/lint fixes in maintained code
 pnpm spec:update        # explicitly download upstream JSON
 pnpm generate           # normalize snapshot and regenerate SDK
 pnpm test               # deterministic tests; no broker credentials required
+pnpm test:coverage      # maintained-source coverage: terminal, HTML, LCOV, JSON
 pnpm pack:smoke         # install local tarballs in a temporary consumer (npm registry access)
 ```
 
 Upstream JSON is preserved in `openapi/trading212.json`. Generation applies documented corrections in `scripts/normalize-spec.mjs`; never edit `src/generated` manually. JSON is the canonical input; [YAML](https://docs.trading212.com/_bundle/api.yaml) is the alternate upstream format. [Generation details](docs/architecture.md).
 
-Fixture tests cover credentials, mutation gates, order validation, uncertain outcomes, pagination, rate scheduling, and MCP discovery/invocation. They do not establish broker-side execution behavior. For an authenticated smoke check, run `doctor` against your chosen account. Test order placement separately in demo before using live trading.
+Fixture tests protect mutation gates and exact order payloads, uncertain outcomes and retry limits, active-request cancellation/timeouts, history traversal, cache lifecycle, credential-file rejection, and MCP tool results. They do not establish broker-side execution behavior. For an authenticated smoke check, run `doctor` against your chosen account. Test order placement separately in demo before using live trading.
 
-GitHub Actions runs `pnpm verify` on pushes, pull requests, and manual dispatches using the mise tool pins. CI uses fixtures and needs no Trading 212 credentials.
+GitHub Actions runs `pnpm verify` on pushes, pull requests, and manual dispatches using the mise tool pins. CI uses fixtures and needs no Trading 212 credentials. Verification generates coverage and the Verify workflow uploads the report as a 14-day artifact, including when tests fail. Open `coverage/index.html` locally. Coverage excludes generated SDK code and has no percentage threshold: critical behavioral assertions are the gate. CLI subprocess smoke tests run separately and are not represented in the Vitest coverage totals.
 
 ## Releases
 

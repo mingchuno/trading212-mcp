@@ -206,10 +206,14 @@ describe("mutation acknowledgements", () => {
         allowTrading: true,
         fetch: fetchMock,
       });
-      const base = { side: "buy" as const, ticker: "AAPL_US_EQ", quantity: 1 };
+      const base = {
+        side: "sell" as const,
+        ticker: "AAPL_US_EQ",
+        quantity: 0.5,
+      };
       const order =
         type === "market"
-          ? { ...base, type }
+          ? { ...base, type, extendedHours: true }
           : type === "limit"
             ? { ...base, type, limitPrice: 123, timeValidity: "DAY" as const }
             : type === "stop"
@@ -221,7 +225,12 @@ describe("mutation acknowledgements", () => {
                   stopPrice: 120,
                   timeValidity: "DAY" as const,
                 };
-      await client.orders.place(order);
+      const result = await client.orders.place(order);
+      expect(result.id).toBe(1);
+      const request = fetchMock.mock.calls[0]?.[0];
+      expect(request?.method).toBe("POST");
+      const { side: _side, type: _type, ...fields } = order;
+      expect(result).toEqual({ ...fields, quantity: -0.5, id: 1 });
       expect(fetchMock.mock.calls[0]?.[0].url).toBe(
         `https://demo.trading212.com/api/v0/equity/orders/${type}`,
       );
@@ -270,4 +279,139 @@ describe("history continuation limits", () => {
       );
     },
   );
+});
+
+describe("report and history validation", () => {
+  const report = {
+    timeFrom: "2026-01-01T00:00:00Z",
+    timeTo: "2026-02-01T00:00:00Z",
+    dataIncluded: {
+      includeDividends: false,
+      includeInterest: false,
+      includeOrders: true,
+      includeTransactions: false,
+    },
+  };
+  it.each([
+    { ...report, timeFrom: report.timeTo },
+    { ...report, timeTo: "2025-01-01T00:00:00Z" },
+    { ...report, timeFrom: "not-a-date" },
+    {
+      ...report,
+      dataIncluded: { ...report.dataIncluded, includeOrders: false },
+    },
+  ])(
+    "rejects invalid report ranges and empty categories before sending",
+    async (input) => {
+      const fetchMock = vi.fn();
+      const api = new Trading212Client({ ...credentials, fetch: fetchMock });
+      await expect(api.reports.request(input)).rejects.toThrow();
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+  );
+  it("rejects conflicting history filters and unsupported transaction filters", async () => {
+    const fetchMock = vi.fn();
+    const api = new Trading212Client({ ...credentials, fetch: fetchMock });
+    await expect(
+      api.history.page("transactions", { ticker: "AAPL_US_EQ" }),
+    ).rejects.toThrow("Transactions do not support");
+    await expect(
+      api.history.page("orders", {
+        nextPagePath: "/api/v0/equity/history/orders?cursor=1",
+        limit: 1,
+      }),
+    ).rejects.toThrow("Use nextPagePath alone");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("order boundary rejection", () => {
+  it.each([
+    { type: "market", side: "buy", ticker: "AAPL_US_EQ", quantity: 0 },
+    {
+      type: "market",
+      side: "buy",
+      ticker: "AAPL_US_EQ",
+      quantity: Number.POSITIVE_INFINITY,
+    },
+    { type: "market", side: "buy", ticker: "AAPL_US_EQ", quantity: Number.NaN },
+    { type: "market", side: "buy", ticker: "../orders", quantity: 1 },
+    {
+      type: "market",
+      side: "buy",
+      ticker: "AAPL_US_EQ",
+      quantity: 1,
+      limitPrice: 2,
+    },
+    {
+      type: "stop",
+      side: "buy",
+      ticker: "AAPL_US_EQ",
+      quantity: 1,
+      stopPrice: 0,
+      timeValidity: "DAY",
+    },
+    {
+      type: "limit",
+      side: "buy",
+      ticker: "AAPL_US_EQ",
+      quantity: 1,
+      limitPrice: -1,
+      timeValidity: "DAY",
+    },
+    {
+      type: "stop_limit",
+      side: "buy",
+      ticker: "AAPL_US_EQ",
+      quantity: 1,
+      stopPrice: 2,
+      timeValidity: "DAY",
+    },
+  ])("rejects invalid order values without sending", async (input) => {
+    const fetchMock = vi.fn();
+    const api = new Trading212Client({
+      ...credentials,
+      allowTrading: true,
+      fetch: fetchMock,
+    });
+    await expect(
+      api.orders.place(input as Parameters<typeof api.orders.place>[0]),
+    ).rejects.toThrow();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+  it.each([0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1, "42", null])(
+    "does not acknowledge invalid broker order ID %s",
+    async (id) => {
+      const fetchMock = vi.fn(async () => Response.json({ id }));
+      const api = new Trading212Client({
+        ...credentials,
+        allowTrading: true,
+        fetch: fetchMock,
+      });
+      await expect(
+        api.orders.place({
+          type: "market",
+          side: "buy",
+          ticker: "AAPL_US_EQ",
+          quantity: 1,
+        }),
+      ).rejects.toMatchObject({ code: "OUTCOME_UNKNOWN" });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    },
+  );
+  it("blocks every deprecated pie mutation when trading is disabled", async () => {
+    const fetchMock = vi.fn();
+    const api = new Trading212Client({ ...credentials, fetch: fetchMock });
+    for (const action of [
+      () => api.deprecatedPies.create({}),
+      () => api.deprecatedPies.update(1, {}),
+      () => api.deprecatedPies.duplicate(1, {}),
+      () => api.deprecatedPies.delete(1),
+    ]) {
+      await expect(action()).rejects.toMatchObject({
+        code: "TRADING_DISABLED",
+      });
+    }
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });
