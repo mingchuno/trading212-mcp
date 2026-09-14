@@ -1,6 +1,6 @@
+import { type Fetch, Trading212Client } from "@mingchuno/trading212-client";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { type Fetch, Trading212Client } from "@trading212-local/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createTrading212Server } from "../src/server.js";
 

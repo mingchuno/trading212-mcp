@@ -1,6 +1,6 @@
 #!/usr/bin/env node
+import { Trading212Client } from "@mingchuno/trading212-client";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { Trading212Client } from "@trading212-local/client";
 import {
   type CommandContext,
   defineCommand,

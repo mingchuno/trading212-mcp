@@ -1,4 +1,3 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
   historyKindSchema,
   historyPageSchema,
@@ -7,7 +6,8 @@ import {
   reportSchema,
   type Trading212Client,
   tickerSchema,
-} from "@trading212-local/client";
+} from "@mingchuno/trading212-client";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { bounded, section, toolResult } from "./results.js";
 

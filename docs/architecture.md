@@ -14,7 +14,7 @@ The client has no MCP dependency. Each instance owns credentials, rate schedulin
 
 Corrections are client policy where the upstream omits requirements; they are not claimed to be a complete repair of the upstream contract. Response properties remain optional. Generated functions cover all 22 operations, including six deprecated Pie operations. Generation checks compare temporary output byte-for-byte without changing the workspace.
 
-`@trading212-local/client/generated` is an explicit low-level escape hatch. Its generated functions do not provide the maintained client's trading gate, validation, retries, or secret handling. Prefer `Trading212Client`. Deprecated Pie methods use generated request types and the transport mutation gate; they do not receive the stricter order/report validation.
+`@mingchuno/trading212-client/generated` is an explicit low-level escape hatch. Its generated functions do not provide the maintained client's trading gate, validation, retries, or secret handling. Prefer `Trading212Client`. Deprecated Pie methods use generated request types and the transport mutation gate; they do not receive the stricter order/report validation.
 
 ## Transport
 

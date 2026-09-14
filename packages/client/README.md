@@ -1,9 +1,9 @@
-# @trading212-local/client
+# @mingchuno/trading212-client
 
-Node.js 22.18+ ESM client for the Trading 212 public API. Provisional package name; not published.
+Node.js 22.18+ ESM client for the Trading 212 public API. Not yet published.
 
 ```ts
-import { Trading212Client } from '@trading212-local/client';
+import { Trading212Client } from '@mingchuno/trading212-client';
 
 const client = new Trading212Client({
   environment: 'demo',
@@ -23,4 +23,4 @@ Set `allowTrading: true` to enable order placement/cancellation and deprecated P
 
 Optional configuration: `fetch`, `timeoutMs` (15000), `maxWaitMs` (5000), `readRetries` (1). Requests use the fixed selected broker origin. Rate scheduling and caches are per instance; broker limits are per account across all clients. Metadata cache misses share one request/signal.
 
-Generated types are exported from the package root. `@trading212-local/client/generated` exports low-level generated functions without the maintained client's safeguards. Prefer the maintained client. API docs: https://docs.trading212.com/api.
+Generated types are exported from the package root. `@mingchuno/trading212-client/generated` exports low-level generated functions without the maintained client's safeguards. Prefer the maintained client. API docs: https://docs.trading212.com/api.

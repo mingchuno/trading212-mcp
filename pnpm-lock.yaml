@@ -32,12 +32,12 @@ importers:
 
   packages/mcp:
     dependencies:
+      '@mingchuno/trading212-client':
+        specifier: workspace:^
+        version: link:../client
       '@modelcontextprotocol/sdk':
         specifier: 1.30.0
         version: 1.30.0(zod@4.6.5)
-      '@trading212-local/client':
-        specifier: workspace:^
-        version: link:../client
       citty:
         specifier: 0.2.2
         version: 0.2.2

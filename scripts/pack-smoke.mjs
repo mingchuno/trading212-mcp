@@ -25,8 +25,8 @@ try {
       "--ignore-scripts",
       "--no-audit",
       "--no-fund",
-      join(temporary, "trading212-local-client-0.1.0.tgz"),
-      join(temporary, "trading212-local-mcp-0.1.0.tgz"),
+      join(temporary, "mingchuno-trading212-client-0.1.0.tgz"),
+      join(temporary, "mingchuno-trading212-mcp-0.1.0.tgz"),
     ],
     { cwd: consumer, stdio: "pipe" },
   );
@@ -35,7 +35,7 @@ try {
     [
       "--input-type=module",
       "-e",
-      "import { Trading212Client } from '@trading212-local/client'; import { getAccountSummary } from '@trading212-local/client/generated'; import { createTrading212Server } from '@trading212-local/mcp'; if (![Trading212Client, getAccountSummary, createTrading212Server].every(value => typeof value === 'function')) process.exit(1); console.log('ok');",
+      "import { Trading212Client } from '@mingchuno/trading212-client'; import { getAccountSummary } from '@mingchuno/trading212-client/generated'; import { createTrading212Server } from '@mingchuno/trading212-mcp'; if (![Trading212Client, getAccountSummary, createTrading212Server].every(value => typeof value === 'function')) process.exit(1); console.log('ok');",
     ],
     { cwd: consumer, encoding: "utf8" },
   );
@@ -44,7 +44,7 @@ try {
     process.execPath,
     [
       resolve("scripts/smoke.mjs"),
-      join(consumer, "node_modules/@trading212-local/mcp/dist/cli.js"),
+      join(consumer, "node_modules/@mingchuno/trading212-mcp/dist/cli.js"),
     ],
     { stdio: "inherit" },
   );

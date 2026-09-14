@@ -1,6 +1,6 @@
-# @trading212-local/mcp
+# @mingchuno/trading212-mcp
 
-Node.js 22.18+ local stdio MCP server. Provisional package name; not published.
+Node.js 22.18+ local stdio MCP server. Not yet published.
 
 Launch `trading212-mcp` after installation, or `node dist/cli.js` from this built package. Use `trading212-mcp doctor` for one authenticated account-summary check. Diagnostics go to stderr.
 

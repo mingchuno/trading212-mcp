@@ -1,5 +1,5 @@
 {
-  "name": "@trading212-local/client",
+  "name": "@mingchuno/trading212-client",
   "version": "0.1.0",
   "description": "Typed Trading 212 public API client",
   "type": "module",
@@ -26,5 +26,10 @@
   },
   "dependencies": {
     "zod": "4.6.5"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mingchuno/trading212-mcp.git",
+    "directory": "packages/client"
   }
 }

@@ -2,10 +2,10 @@
 
 Two Node.js/TypeScript packages in a pnpm workspace:
 
-- `@trading212-local/client`: generated API coverage plus authentication, validation, pagination, caching, and rate handling.
-- `@trading212-local/mcp`: local stdio MCP server using that client. Ten tools by default; twelve with trading enabled.
+- `@mingchuno/trading212-client`: generated API coverage plus authentication, validation, pagination, caching, and rate handling.
+- `@mingchuno/trading212-mcp`: local stdio MCP server using that client. Ten tools by default; twelve with trading enabled.
 
-Package names are provisional. Nothing is published. Requires Node.js **22.18+** and pnpm **10.18.0**. TypeScript **6.0.3** is pinned because Hey API 0.99.0 uses the JavaScript compiler API unavailable in TypeScript 7.0.2.
+Repository: `mingchuno/trading212-mcp`. Packages are not yet published. Requires Node.js **22.18+** and pnpm **10.18.0**. TypeScript **6.0.3** is pinned because Hey API 0.99.0 uses the JavaScript compiler API unavailable in TypeScript 7.0.2.
 
 Development uses the exact Node.js and pnpm versions in `mise.toml`; TypeScript and Biome are pinned in `package.json`. Activate mise in your shell, or prefix commands with `mise exec --`.
 

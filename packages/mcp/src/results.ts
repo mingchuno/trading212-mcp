@@ -1,7 +1,7 @@
 import {
   type Trading212Client,
   Trading212Error,
-} from "@trading212-local/client";
+} from "@mingchuno/trading212-client";
 import { z } from "zod";
 
 export function publicError(error: unknown) {

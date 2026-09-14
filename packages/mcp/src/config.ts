@@ -1,6 +1,9 @@
 import { constants } from "node:fs";
 import { open } from "node:fs/promises";
-import { type ClientConfig, environmentSchema } from "@trading212-local/client";
+import {
+  type ClientConfig,
+  environmentSchema,
+} from "@mingchuno/trading212-client";
 import { z } from "zod";
 
 export class ConfigurationError extends Error {}
