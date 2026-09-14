@@ -2,6 +2,8 @@
 
 Release Please provides a reviewable release decision for independently consumable packages. One combined PR keeps client and dependent MCP changes together. Review its versions and changelogs before merging; merging authorizes the release.
 
+Each push to `main` runs verification and then Release Please. Releasable commits create or refresh the existing combined release PR, including its branch, proposed versions, and changelogs. This is a bot-managed branch, not a feature branch to maintain manually. Work still on unmerged branches is not included. Merging the release PR creates tags and releases, then publishes when enabled. Documentation-only or tooling-only commits need not create a release PR.
+
 ## Contributor contract
 
 Squash PRs with a Conventional Commit title, such as `fix(client): handle empty history`. Preserve breaking-change information in the squash body or use `!` in the title. Package selection follows changed paths, not just the commit scope; root-only changes may produce no release.

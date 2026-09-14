@@ -1,49 +1,34 @@
-# Trading 212 client and MCP
+![Trading 212 — TypeScript client and MCP](docs/assets/readme-banner.png)
 
-Two Node.js/TypeScript packages in a pnpm workspace:
+# Trading 212 client + MCP
 
-- `@mingchuno/trading212-client`: generated API coverage plus authentication, validation, pagination, caching, and rate handling.
-- `@mingchuno/trading212-mcp`: local stdio MCP server using that client. Ten tools by default; twelve with trading enabled.
+Connect Node.js applications and AI assistants to the Trading 212 public API. Typed requests, bounded history, account snapshots, and opt-in trading in two independently installable packages.
 
-Repository: `mingchuno/trading212-mcp`. Packages are not yet published. Requires Node.js **22.18+** and pnpm **10.18.0**. TypeScript **6.0.3** is pinned because Hey API 0.99.0 uses the JavaScript compiler API unavailable in TypeScript 7.0.2.
+Independent community project; not affiliated with Trading 212. Requires **Node.js 22.18+**. MIT licensed.
 
-Development uses the exact Node.js and pnpm versions in `mise.toml`; TypeScript and Biome are pinned in `package.json`. Activate mise in your shell, or prefix commands with `mise exec --`.
+| Package | Use it for | Guide |
+| --- | --- | --- |
+| [@mingchuno/trading212-client](https://www.npmjs.com/package/@mingchuno/trading212-client) | Trading 212 access from JavaScript or TypeScript | [Client usage](packages/client/README.md) |
+| [@mingchuno/trading212-mcp](https://www.npmjs.com/package/@mingchuno/trading212-mcp) | Local stdio tools for an MCP-compatible assistant | [MCP setup](packages/mcp/README.md) |
 
-## Start
+## Use with an assistant
+
+Install the server:
 
 ```sh
-mise install
-pnpm install --frozen-lockfile
-pnpm build
+npm install --global @mingchuno/trading212-mcp
 ```
 
-Generate an API key and secret under **Trading 212 → Settings → API (Beta)**. Choose permissions appropriate to the tools you intend to use. The secret is shown once. See [Trading 212's instructions](https://helpcentre.trading212.com/hc/en-us/articles/14584770928157-Trading-212-API-key).
-
-Supply credentials through your MCP host's environment/secret mechanism:
-
-| Variable | Meaning | Default |
-| --- | --- | --- |
-| `T212_ENV` | `live` or `demo` | `live` |
-| `T212_API_KEY` | API key | Required with secret |
-| `T212_API_SECRET` | API secret | Required with key |
-| `T212_CREDENTIALS_FILE` | Absolute path to JSON containing `apiKey` and `apiSecret` | Alternative to both variables |
-| `T212_ALLOW_TRADING` | Exactly `true` or `false` | `false` |
-
-Credentials files must be owner-only regular files (`chmod 600` on Unix); symlinks are rejected. Do not combine a credentials file with credential environment variables. Files are read at startup, so restart after rotation. `.env` files are not loaded automatically. Use separate server instances for different accounts or environments.
-
-Run `pnpm doctor` to check account-summary access. This makes one authenticated read and does not verify every permission. Start the server with `node packages/mcp/dist/cli.js`. It reads stdin and writes only MCP protocol messages to stdout; diagnostics go to stderr.
-
-Example host configuration (replace absolute paths):
+Add a local stdio server to your MCP host. This common JSON format is host-dependent; replace the credential path with your own:
 
 ```json
 {
   "mcpServers": {
     "trading212": {
-      "command": "node",
-      "args": ["/absolute/path/trading-212-mcp/packages/mcp/dist/cli.js"],
+      "command": "trading212-mcp",
       "env": {
         "T212_ENV": "live",
-        "T212_CREDENTIALS_FILE": "/absolute/private/path/credentials.json",
+        "T212_CREDENTIALS_FILE": "/absolute/private/path/trading212.json",
         "T212_ALLOW_TRADING": "false"
       }
     }
@@ -51,9 +36,29 @@ Example host configuration (replace absolute paths):
 }
 ```
 
-Use the absolute Node executable path if your host does not inherit your shell PATH. Configure the host to launch Node directly: package-manager banners must not enter the stdio protocol.
+See [MCP setup](packages/mcp/README.md) for creating the credentials file, checking the connection, and resolving executable paths. No repository clone or development tooling is needed.
 
-The citty CLI supports `serve` (the default), `doctor`, `--help` / `-h`, and `--version` / `-v`. Subcommand help is available with `serve --help` and `doctor --help`; all help and diagnostics go to stderr.
+Try asking: “Summarize my positions and pending orders” or “Find instruments matching Apple.” Trading starts disabled; report generation remains available.
+
+## Use from code
+
+```sh
+npm install @mingchuno/trading212-client
+```
+
+```js
+import { Trading212Client } from '@mingchuno/trading212-client';
+
+const client = new Trading212Client({
+  environment: 'live',
+  apiKey: process.env.T212_API_KEY,
+  apiSecret: process.env.T212_API_SECRET,
+});
+
+console.log(await client.account.summary());
+```
+
+Supply the environment variables before running your ESM application. See [client usage](packages/client/README.md) for pagination, errors, and trading configuration.
 
 ## Tools
 
@@ -86,7 +91,12 @@ The upstream API is beta, supports Invest/Stocks ISA, and has primary-currency l
 
 ## Development
 
+Development uses the tool versions in `mise.toml`. TypeScript stays pinned because the generator requires its JavaScript compiler API.
+
 ```sh
+mise install
+pnpm install --frozen-lockfile
+pnpm build
 pnpm verify             # regeneration drift, Biome, types, fixtures, build
 pnpm format             # format/lint fixes in maintained code
 pnpm spec:update        # explicitly download upstream JSON
