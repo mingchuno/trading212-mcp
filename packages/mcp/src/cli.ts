@@ -11,7 +11,8 @@ import { ConfigurationError, loadConfig } from "./config.js";
 import { publicError } from "./results.js";
 import { createTrading212Server } from "./server.js";
 
-const version = "0.1.0";
+import { version } from "./version.js";
+
 const helpArgs = {
   help: { type: "boolean", alias: "h", description: "Show help" },
   version: { type: "boolean", alias: "v", description: "Show version" },

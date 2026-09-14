@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -16,6 +17,9 @@ const { StdioClientTransport } = await import(
     .href
 );
 const entry = process.argv[2] ?? resolve("packages/mcp/dist/cli.js");
+const packageVersion = JSON.parse(
+  await readFile(resolve(entry, "../../package.json"), "utf8"),
+).version;
 const env = Object.fromEntries(
   Object.entries(process.env).filter(
     ([key, value]) => !key.startsWith("T212_") && value !== undefined,
@@ -35,6 +39,7 @@ for (const args of [
   assert.equal(help.status, 0);
   assert.equal(help.stdout, "");
   assert.ok(help.stderr.length > 0);
+  if (args[0] === "--version") assert.equal(help.stderr.trim(), packageVersion);
 }
 for (const args of [
   ["unknown"],
@@ -74,6 +79,7 @@ for (const enabled of [false, true]) {
   const client = new Client({ name: "stdio-smoke", version: "1.0.0" });
   try {
     await client.connect(transport);
+    assert.equal(client.getServerVersion()?.version, packageVersion);
     const { tools } = await client.listTools();
     assert.equal(tools.length, enabled ? 12 : 10);
     assert.equal(

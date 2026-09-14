@@ -1,0 +1,15 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "node",
+  "include-component-in-tag": true,
+  "include-v-in-tag": true,
+  "tag-separator": "-",
+  "bump-minor-pre-major": true,
+  "bump-patch-for-minor-pre-major": false,
+  "separate-pull-requests": false,
+  "plugins": ["node-workspace"],
+  "packages": {
+    "packages/client": { "component": "client", "initial-version": "0.1.0" },
+    "packages/mcp": { "component": "mcp", "initial-version": "0.1.0" }
+  }
+}

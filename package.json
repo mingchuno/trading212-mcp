@@ -19,12 +19,21 @@
     "mcp": "node packages/mcp/dist/cli.js",
     "doctor": "node packages/mcp/dist/cli.js doctor",
     "smoke": "node scripts/smoke.mjs",
-    "pack:smoke": "pnpm build && node scripts/pack-smoke.mjs"
+    "pack:smoke": "pnpm build && node scripts/pack-smoke.mjs",
+    "prepare": "husky",
+    "release:prepare": "node scripts/release-please.mjs",
+    "release:publish": "node scripts/publish.mjs",
+    "lint:pr": "node scripts/lint-pr-title.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.13",
+    "@commitlint/cli": "21.2.2",
+    "@commitlint/config-conventional": "21.2.2",
     "@hey-api/openapi-ts": "0.99.0",
     "@types/node": "^22.0.0",
+    "husky": "9.1.7",
+    "npm": "12.0.2",
+    "release-please": "17.11.2",
     "typescript": "6.0.3",
     "vitest": "5.0.0"
   },

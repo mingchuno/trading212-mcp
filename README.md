@@ -82,7 +82,7 @@ Orders use an exact Trading 212 ticker, explicit `buy`/`sell`, and a positive sh
 
 No mutations are automatically retried. `OUTCOME_UNKNOWN` means a request may already have been applied: inspect pending orders **and history** before deciding what to do. Absence from pending orders alone cannot prove rejection. Cancellation acceptance is only a request, not proof of completed cancellation. CSV generation is asynchronous; use `list_reports` after its suggested polling interval. Download links may be sensitive; the server does not download or forward credentials to them.
 
-The upstream API is beta, supports Invest/Stocks ISA, and has primary-currency limitations. Deprecated Pie operations are available in the client but omitted from MCP. See [API research](docs/research/trading212-api.md).
+The upstream API is beta, supports Invest/Stocks ISA, and has primary-currency limitations. Deprecated Pie operations are available in the client but omitted from MCP. See [design boundaries and upstream references](docs/architecture.md).
 
 ## Development
 
@@ -100,3 +100,7 @@ Upstream JSON is preserved in `openapi/trading212.json`. Generation applies docu
 Fixture tests cover credentials, mutation gates, order validation, uncertain outcomes, pagination, rate scheduling, and MCP discovery/invocation. They do not establish broker-side execution behavior. For an authenticated smoke check, run `doctor` against your chosen account. Test order placement separately in demo before using live trading.
 
 GitHub Actions runs `pnpm verify` on pushes, pull requests, and manual dispatches using the mise tool pins. CI uses fixtures and needs no Trading 212 credentials.
+
+## Releases
+
+Husky and CI enforce Conventional Commits. Release Please manages independent package versions and changelogs; merging its release PR publishes through npm trusted publishing once configured. See [release maintenance](docs/releases.md).

@@ -1,0 +1,74 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Never interrupt a run between publishing the client and its dependent.
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+env:
+  HUSKY: '0'
+
+jobs:
+  release:
+    if: github.repository == 'mingchuno/trading212-mcp' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      plan: ${{ steps.release.outputs.plan }}
+      sha: ${{ steps.release.outputs.sha }}
+      released: ${{ steps.release.outputs.released }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm verify
+      - name: Create release App token
+        id: app
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
+      - name: Update release PRs and create merged releases
+        id: release
+        run: pnpm release:prepare
+        env:
+          RELEASE_TOKEN: ${{ steps.app.outputs.token }}
+
+  publish:
+    needs: release
+    if: needs.release.outputs.released == 'true' && vars.NPM_PUBLISH_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ needs.release.outputs.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
+      - run: pnpm install --frozen-lockfile
+      - name: Verify exact release commit
+        run: pnpm verify
+      - name: Test packaged installation
+        run: pnpm pack:smoke
+      - name: Publish released packages with npm OIDC
+        run: pnpm release:publish
+        env:
+          RELEASE_PLAN: ${{ needs.release.outputs.plan }}

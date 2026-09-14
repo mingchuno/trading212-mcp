@@ -10,6 +10,7 @@ import {
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { bounded, section, toolResult } from "./results.js";
+import { version } from "./version.js";
 
 const read = {
   readOnlyHint: true,
@@ -30,7 +31,7 @@ const pagination = {
 
 export function createTrading212Server(api: Trading212Client): McpServer {
   const server = new McpServer(
-    { name: "trading212", version: "0.1.0" },
+    { name: "trading212", version },
     {
       instructions: `Trading 212 ${api.environment} account. Trading ${api.allowTrading ? "enabled" : "disabled"}. Order submissions are non-idempotent: never retry an unknown outcome automatically. Obtain user approval through your host before trading. Account snapshots are not atomic. No live quote endpoint is available.`,
     },

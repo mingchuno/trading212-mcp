@@ -3,15 +3,13 @@ import { execFileSync } from "node:child_process";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { packages, packPackage } from "./release-packages.mjs";
 
 const temporary = await mkdtemp(join(tmpdir(), "trading212-pack-"));
 try {
-  for (const name of ["client", "mcp"]) {
-    execFileSync("pnpm", ["pack", "--pack-destination", temporary], {
-      cwd: resolve("packages", name),
-      stdio: "pipe",
-    });
-  }
+  const artifacts = [];
+  for (const pkg of packages)
+    artifacts.push(await packPackage(pkg.path, temporary));
   const consumer = join(temporary, "consumer");
   await mkdir(consumer);
   await writeFile(
@@ -25,8 +23,7 @@ try {
       "--ignore-scripts",
       "--no-audit",
       "--no-fund",
-      join(temporary, "mingchuno-trading212-client-0.1.0.tgz"),
-      join(temporary, "mingchuno-trading212-mcp-0.1.0.tgz"),
+      ...artifacts.map((artifact) => artifact.tarball),
     ],
     { cwd: consumer, stdio: "pipe" },
   );

@@ -31,5 +31,8 @@
     "type": "git",
     "url": "git+https://github.com/mingchuno/trading212-mcp.git",
     "directory": "packages/client"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
