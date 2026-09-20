@@ -21,7 +21,7 @@
     "smoke": "node scripts/smoke.mjs",
     "pack:smoke": "pnpm build && node scripts/pack-smoke.mjs",
     "prepare": "husky",
-    "release:prepare": "node scripts/release-please.mjs",
+    "release:plan": "node scripts/release-plan.mjs",
     "release:publish": "node scripts/publish.mjs",
     "lint:pr": "node scripts/lint-pr-title.mjs",
     "test:coverage": "vitest run --coverage"
@@ -35,7 +35,7 @@
     "@vitest/coverage-v8": "5.0.0",
     "husky": "9.1.7",
     "npm": "12.0.2",
-    "release-please": "17.11.2",
+    "release-please": "17.6.0",
     "typescript": "6.0.3",
     "vitest": "5.0.0"
   },

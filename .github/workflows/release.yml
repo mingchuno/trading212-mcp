@@ -42,10 +42,18 @@ jobs:
           permission-pull-requests: write
           permission-issues: write
       - name: Update release PRs and create merged releases
+        id: release_please
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0; release-please 17.6.0
+        with:
+          token: ${{ steps.app.outputs.token }}
+          target-branch: main
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+      - name: Validate publication plan
         id: release
-        run: pnpm release:prepare
+        run: pnpm release:plan
         env:
-          RELEASE_TOKEN: ${{ steps.app.outputs.token }}
+          RELEASE_OUTPUTS: ${{ toJSON(steps.release_please.outputs) }}
 
   publish:
     needs: release

@@ -4,6 +4,8 @@ Release Please provides a reviewable release decision for independently consumab
 
 Each push to `main` runs verification and then Release Please. Releasable commits create or refresh the existing combined release PR, including its branch, proposed versions, and changelogs. This is a bot-managed branch, not a feature branch to maintain manually. Work still on unmerged branches is not included. Merging the release PR creates tags and releases, then publishes when enabled. Documentation-only or tooling-only commits need not create a release PR.
 
+The workflow uses the SHA-pinned official `googleapis/release-please-action`. Its per-package outputs pass through `pnpm release:plan` to validate versions, tags, and a shared release commit, then order the client before MCP. Keep the test-only `release-please` dependency aligned with the action's bundled version when updating the action; rerun the release fixtures before adopting a new pin.
+
 ## Contributor contract
 
 Squash PRs with a Conventional Commit title, such as `fix(client): handle empty history`. Preserve breaking-change information in the squash body or use `!` in the title. Package selection follows changed paths, not just the commit scope; root-only changes may produce no release.
@@ -11,6 +13,8 @@ Squash PRs with a Conventional Commit title, such as `fix(client): handle empty 
 Version policy lives in [release-please-config.json](../release-please-config.json), with examples enforced by [release fixtures](../scripts/test/release-please.test.mjs). Keep `workspace:^` in the MCP dependency and pack with pnpm so the published manifest contains a registry-compatible range. Release Please does not maintain the pnpm lockfile; a frozen install on the release PR must still pass.
 
 ## External configuration
+
+Switching to the official action reuses the existing App secrets, permissions, and npm trusted publisher configuration. No additional secrets are required.
 
 These settings live outside Git and must be preserved when migrating or recreating the repository:
 
